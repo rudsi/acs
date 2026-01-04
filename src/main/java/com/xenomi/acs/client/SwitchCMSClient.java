@@ -1,9 +1,9 @@
 package com.xenomi.acs.client;
 
-import com.xenomi.acs.client.dto.request.SwitchCMSRequest;
+import com.xenomi.acs.client.dto.request.SwitchCMSDecryptedRequest;
+import com.xenomi.acs.client.dto.request.SwitchCMSEncryptedRequest;
 import com.xenomi.acs.client.dto.response.SwitchCMSResponse;
 import com.xenomi.acs.services.RSAEncryptionService;
-import com.xenomi.acs.utils.LunhValidation;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -62,7 +62,7 @@ public class SwitchCMSClient {
      * The default value is provided for local development and testing.
      * In production, this value must be overridden via external configuration.
      */
-    @Value("${switch.cms.base-url:https://localhost:8443/api/mobile-fetch/cardholder-contact}")
+    @Value("${switch.cms.base-url:https://localhost:8443/api/v1/customer/details}")
     private String baseUrl;
 
     /**
@@ -105,28 +105,18 @@ public class SwitchCMSClient {
      * @return the response received from the Switch CMS service
      * @throws IllegalArgumentException if the card number fails Luhn validation
      */
-    public SwitchCMSResponse sendCardholderContactRequest(String traceId,
-                                                          String cardNumber) {
+    public SwitchCMSResponse sendCardholderContactRequest(SwitchCMSDecryptedRequest request) {
 
         // Validate card number before any processing or transmission
-        if (!LunhValidation.isValid(cardNumber)) {
-            throw new IllegalArgumentException(
-                    "Invalid card number: Luhn check failed");
-        }
+        
 
         // Encrypt sensitive card data prior to transmission
-        String encryptedPayload = rsaEncryptionService.encrypt(cardNumber);
-
-        // Build the CMS request payload
-        SwitchCMSRequest request = new SwitchCMSRequest(
-                traceId,
-               encryptedPayload
-        );
+        SwitchCMSEncryptedRequest encryptedPayload = rsaEncryptionService.encrypt(request);
 
         // Execute the outbound HTTPS request using the TLS-enabled RestClient
         return restClient.post()
                 .uri(baseUrl)
-                .body(request)
+                .body(encryptedPayload)
                 .retrieve()
                 .body(SwitchCMSResponse.class);
     }

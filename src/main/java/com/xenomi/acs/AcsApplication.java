@@ -1,58 +1,54 @@
 package com.xenomi.acs;
 
-import java.util.UUID;
-
+import com.xenomi.acs.client.SwitchCMSClient;
+import com.xenomi.acs.client.dto.request.SwitchCMSDecryptedRequest;
+import com.xenomi.acs.client.dto.response.SwitchCMSResponse;
+import com.xenomi.acs.services.RSAEncryptionService;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 
-import com.xenomi.acs.client.SwitchCMSClient;
-import com.xenomi.acs.client.dto.response.SwitchCMSResponse;
 
 @SpringBootApplication
 public class AcsApplication {
 
-	public static void main(String[] args) {
-		SpringApplication.run(AcsApplication.class, args);
-	}
+    public static void main(String[] args) {
+        SpringApplication.run(AcsApplication.class, args);
+    }
 
-	@Bean
-    CommandLineRunner run(SwitchCMSClient switchCMSClient) {
+    @Bean
+    CommandLineRunner run(SwitchCMSClient switchCMSClient, RSAEncryptionService encryptionService) {
         return args -> {
-            System.out.println("🚀 [ACS] Starting Cardholder Contact Request...");
+            System.out.println("[ACS] Starting Encrypted Communication Test...");
 
-            // --- 1. Generate a Valid Trace ID ---
-            // Requirement: Alphanumeric, Max 15 chars.
-            // Strategy: Generate UUID, remove hyphens, take first 15 chars.
-            String rawUuid = UUID.randomUUID().toString().replace("-", "");
-            String validTraceId = rawUuid.substring(0, 15);
+            
+            SwitchCMSDecryptedRequest rawRequest = new SwitchCMSDecryptedRequest(
+                "4111111111111111", // Valid Visa Test Number
+                "John Doe",
+                "9876543210",
+                "john.doe@xenomi.com"
+            );
 
-            System.out.println("Generated Trace ID: " + validTraceId);
-
-            // --- 2. Use a Valid Luhn Card Number ---
-            // (Test Visa number)
-            String validCardNumber = "4111111111111111";
+            System.out.println("Original Data Prepared:");
+            System.out.println("Card:" + rawRequest.cardNumber());
 
             try {
-                // --- 3. Send Request ---
+                // --- 2. Encrypt the Data locally ---
+                
+                
+                // --- 3. Send the Encrypted Payload via the Client ---
+                // Note: Ensure your SwitchCMSClient now accepts 'SwitchCMSEncryptedRequest'
                 SwitchCMSResponse response = switchCMSClient.sendCardholderContactRequest(
-                        validTraceId,
-                        validCardNumber
+                    rawRequest
                 );
 
-                System.out.println("✅ [ACS] Response Received from Switch:");
-                System.out.println("   Trace ID: " + response.traceId());
-                System.out.println("   Status:   " + response.apiRespFlag());
-                System.out.println("   Mobile:   " + response.mobileNumber());
-                System.out.println("   Email:    " + response.emailId());
+                System.out.println("Response: " + response);
 
             } catch (Exception e) {
-                // This will catch validation errors (if enabled) or connection errors
                 System.err.println("[ACS] Request Failed: " + e.getMessage());
                 e.printStackTrace();
             }
         };
-	}
-
+    }
 }

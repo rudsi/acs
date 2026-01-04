@@ -3,6 +3,11 @@ package com.xenomi.acs.services;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
+import com.xenomi.acs.client.dto.request.SwitchCMSDecryptedRequest;
+import com.xenomi.acs.client.dto.request.SwitchCMSEncryptedRequest;
+
+import tools.jackson.databind.ObjectMapper;
+
 import javax.crypto.Cipher;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyFactory;
@@ -47,13 +52,17 @@ public class RSAEncryptionService {
      * Loaded once at startup to avoid repeated I/O.
      */
     private final PublicKey publicKey;
+    private final ObjectMapper objectMapper;
+
+     
 
     /**
      * Constructs the service and initializes the RSA public key
      * from the application classpath.
      */
     public RSAEncryptionService() {
-        this.publicKey = loadPublicKey("keys/switch_public_key.pem");
+        this.publicKey = loadPublicKey("keys/public_key.pem");
+        this.objectMapper = new ObjectMapper();
     }
 
     /**
@@ -64,15 +73,16 @@ public class RSAEncryptionService {
      * @return Base64-encoded encrypted value
      * @throws IllegalStateException if encryption fails
      */
-    public String encrypt(String plainText) {
+    public SwitchCMSEncryptedRequest encrypt(SwitchCMSDecryptedRequest request) {
         try {
+            String jsonString = objectMapper.writeValueAsString(request);
             Cipher cipher = Cipher.getInstance(RSA_TRANSFORMATION);
             cipher.init(Cipher.ENCRYPT_MODE, publicKey);
 
             byte[] encryptedBytes =
-                    cipher.doFinal(plainText.getBytes(StandardCharsets.UTF_8));
+                    cipher.doFinal(jsonString.getBytes(StandardCharsets.UTF_8));
 
-            return Base64.getEncoder().encodeToString(encryptedBytes);
+            return new SwitchCMSEncryptedRequest(Base64.getEncoder().encodeToString(encryptedBytes));
 
         } catch (Exception e) {
             throw new IllegalStateException("RSA encryption failed", e);
